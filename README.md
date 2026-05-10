@@ -2,20 +2,39 @@
 
 Standalone Java utility that:
 
-1. Reads FileNet document ids from an Oracle query.
-2. Connects to IBM FileNet Content Platform Engine.
-3. Creates one runtime folder per FileNet document id.
-4. Streams each document content element to disk.
+1. Connects to Oracle.
+2. Runs a select query for source table rows.
+3. Reads each row and extracts the FileNet document id.
+4. Connects to FileNet Content Platform Engine and fetches the document by id.
+5. Creates one local folder per FileNet document id and downloads the document content.
+6. Updates the Oracle row as `SUCCESS` or `FAILED`.
 
 ## Configure
 
 Edit `config/application.properties`.
 
-The Oracle query must return the FileNet document id/GUID in the first column:
+The Oracle query must return these exact aliases:
+
+- `RECORD_ID`: primary key or unique row id used for updates
+- `FILENET_ID`: FileNet document id/GUID
 
 ```sql
-select FILENET_ID from YOUR_TABLE where FILENET_ID is not null
+select ID as RECORD_ID, FILENET_ID as FILENET_ID
+from YOUR_TABLE
+where FILENET_ID is not null
+  and DOWNLOAD_STATUS is null
 ```
+
+The success update SQL must accept parameters in this order:
+
+1. downloaded file count
+2. local download folder
+3. `RECORD_ID`
+
+The failure update SQL must accept parameters in this order:
+
+1. error message
+2. `RECORD_ID`
 
 ## FileNet jars
 
@@ -38,3 +57,4 @@ mvn exec:java -Dexec.args="config/application.properties"
 - If a FileNet id is stored without braces, the utility wraps it as `{id}` before fetching.
 - If a document has multiple content elements, each element is downloaded into the same document-id folder.
 - If a file name already exists, the utility appends `-2`, `-3`, and so on.
+- Each Oracle row is committed after its success or failure update.
